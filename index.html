@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pengunci index.html — Chart Studio</title>
+<style>
+:root{
+  --ink:#1b1b1b; --red:#E0212B; --gold:#F5B700; --line:#ddd6c8; --soft:#6b6459; --ok:#1E8449; --bad:#b00020;
+  --paper:#ffffff; --bg:#efece6;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{
+  min-height:100vh; background:var(--bg); color:var(--ink);
+  font-family:"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; line-height:1.5;
+  display:flex; justify-content:center; padding:28px 16px 48px;
+}
+.wrap{ width:min(680px,100%); }
+.bar{ background:var(--ink); color:#fff; border-radius:14px 14px 0 0; padding:18px 24px; border-bottom:5px solid var(--red); }
+.bar h1{ margin:0; font-size:22px; letter-spacing:.2px; }
+.bar p{ margin:2px 0 0; font-size:13px; color:#cfc8ba; }
+.panel{ background:var(--paper); border-radius:0 0 14px 14px; padding:22px 24px 26px; box-shadow:0 10px 30px rgba(30,20,5,.12); }
+.lead{ margin:0 0 18px; font-size:14px; color:#3a352d; }
+.step{ margin:0 0 18px; }
+.step > b{ display:block; font-size:14px; margin-bottom:6px; }
+.drop{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center;
+  border:2px dashed var(--line); border-radius:12px; padding:22px 14px; cursor:pointer; background:#faf8f4; color:var(--soft);
+}
+.drop:hover, .drop.over{ border-color:var(--red); color:var(--red); background:#fff; }
+.drop input{ display:none; }
+.drop .fn{ font-weight:700; color:var(--ink); }
+.pwrow{ display:flex; gap:8px; }
+.pwrow input{ flex:1; padding:11px 12px; font-size:15px; border:1px solid var(--line); border-radius:9px; font-family:inherit; }
+.pwrow input:focus, button:focus-visible{ outline:2px solid var(--red); outline-offset:1px; }
+.ghost{ padding:0 14px; border:1px solid var(--line); background:#fff; border-radius:9px; cursor:pointer; font-weight:600; font-family:inherit; }
+.hint{ margin:6px 0 0; font-size:12.5px; color:var(--soft); min-height:18px; }
+.hint.warn{ color:#9a5a10; font-weight:600; }
+.go{
+  width:100%; padding:13px; border:0; border-radius:10px; background:var(--red); color:#fff; font-size:16px; font-weight:700;
+  cursor:pointer; font-family:inherit;
+}
+.go:disabled{ opacity:.5; cursor:not-allowed; }
+.status{ margin-top:14px; font-size:13.5px; min-height:22px; }
+.status.ok{ color:var(--ok); font-weight:700; }
+.status.err{ color:var(--bad); font-weight:700; }
+.notes{ margin:22px 0 0; padding:14px 16px; border-radius:10px; background:#faf8f4; border:1px solid var(--line); font-size:13px; color:#3a352d; }
+.notes b{ display:block; margin-bottom:4px; }
+.notes ul{ margin:0; padding-left:18px; }
+.notes li{ margin:3px 0; }
+.foot{ margin-top:18px; text-align:center; font-size:12px; color:var(--soft); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <h1>Pengunci index.html</h1>
+    <p>Chart Studio — Ceria Metalindo Prima</p>
+  </div>
+  <div class="panel">
+    <p class="lead">Alat ini mengubah <b>index.html</b> Anda menjadi file terenkripsi. Isi aplikasi tidak bisa dibaca atau disalin dari GitHub, dan pengunjung harus memasukkan password untuk membuka grafik. Semua proses berjalan di komputer Anda; file tidak dikirim ke mana pun.</p>
+
+    <div class="step">
+      <b>1. Pilih file index.html asli</b>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".html,.htm,text/html">
+        <span id="dropTxt">Klik untuk memilih file, atau seret ke sini</span>
+        <span class="fn" id="fileName"></span>
+      </label>
+    </div>
+
+    <div class="step">
+      <b>2. Password masuk</b>
+      <div class="pwrow">
+        <input type="password" id="pw" value="furnace" autocomplete="off" spellcheck="false">
+        <button type="button" class="ghost" id="eye">Tampilkan</button>
+      </div>
+      <p class="hint" id="pwHint"></p>
+    </div>
+
+    <button class="go" id="go" disabled>Kunci dan unduh index.html</button>
+    <div class="status" id="status"></div>
+
+    <div class="notes">
+      <b>Sesudah mengunduh</b>
+      <ul>
+        <li>Simpan file <b>index.html asli</b> di komputer Anda. Setiap kali mengubah aplikasi, ubah file aslinya lalu kunci ulang dengan alat ini.</li>
+        <li>Upload hanya file hasil kunci ke GitHub, dengan nama <b>index.html</b>. Jangan upload file asli.</li>
+        <li>Versi lama yang pernah diupload tanpa kunci masih tersimpan di riwayat commit. Hapus repository lama dan buat yang baru, atau jadikan private.</li>
+        <li>Password diminta sekali per tab. Menutup tab berarti password diminta lagi.</li>
+      </ul>
+    </div>
+    <div class="foot">Created By Process Engineer Furnace</div>
+  </div>
+</div>
+
+<script>
+/*CORE-START*/
+const IT = 600000;                      // jumlah putaran PBKDF2 (makin besar makin lambat ditebak)
+const TE = new TextEncoder();
+
+function b64(u){
+  let s = ''; const C = 0x8000;
+  for(let i=0;i<u.length;i+=C) s += String.fromCharCode.apply(null, u.subarray(i, i+C));
+  return btoa(s);
+}
+function d64(s){
+  const b = atob(s), a = new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++) a[i] = b.charCodeAt(i);
+  return a;
+}
+async function deriveKey(pw, salt, it){
+  const base = await crypto.subtle.importKey('raw', TE.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt: salt, iterations: it, hash:'SHA-256' }, base,
+    { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+}
+async function gzip(bytes){
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+}
+async function gunzip(bytes){
+  return await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+async function buildPackage(htmlText, pw){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  let raw = TE.encode(htmlText), z = 0;
+  if(typeof CompressionStream !== 'undefined'){ raw = await gzip(raw); z = 1; }
+  const key = await deriveKey(pw, salt, IT);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv: iv }, key, raw));
+  return { s: b64(salt), v: b64(iv), i: IT, z: z, d: b64(ct) };
+}
+async function openPackage(pkg, pw){
+  const key = await deriveKey(pw, d64(pkg.s), pkg.i);
+  const buf = await crypto.subtle.decrypt({ name:'AES-GCM', iv: d64(pkg.v) }, key, d64(pkg.d));
+  const bytes = new Uint8Array(buf);
+  return pkg.z ? await gunzip(bytes) : new TextDecoder().decode(bytes);
+}
+function wrapper(pkg){
+  return `<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Chart Studio — Masuk</title>
+<style>
+html,body{height:100%;margin:0}
+body{background:#161616;font-family:"Segoe UI",system-ui,Arial,sans-serif;color:#1b1b1b;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+.card{width:min(380px,100%);background:#fff;border-radius:14px;border-top:6px solid #E0212B;padding:26px 26px 20px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+h1{margin:0 0 2px;font-size:22px}
+p.s{margin:0 0 18px;font-size:13px;color:#6b6459}
+label{display:block;font-size:12px;font-weight:700;color:#6b6459;margin-bottom:5px}
+input{width:100%;box-sizing:border-box;padding:11px 12px;font-size:15px;border:1px solid #d9d2c5;border-radius:9px;font-family:inherit}
+input:focus{outline:2px solid #E0212B;outline-offset:1px}
+button{margin-top:14px;width:100%;padding:11px;border:0;border-radius:9px;background:#E0212B;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+button:disabled{opacity:.6;cursor:wait}
+#msg{min-height:20px;margin-top:10px;font-size:13px;color:#b00020;font-weight:600}
+.ft{margin-top:14px;text-align:center;font-size:11.5px;color:#8a8378;font-weight:600}
+</style></head><body>
+<div class="card"><h1>Chart Studio</h1><p class="s">Ceria Metalindo Prima — Visualisasi Data</p>
+<form id="f" autocomplete="off"><label for="pw">Password</label><input id="pw" type="password" autofocus autocomplete="current-password"><button id="go" type="submit">Masuk</button></form>
+<div id="msg" role="alert"></div><div class="ft">Created By Process Engineer Furnace</div></div>
+<noscript>Aktifkan JavaScript untuk membuka aplikasi.</noscript>
+<script>
+(function(){
+var P=${JSON.stringify(pkg)};
+var $=function(i){return document.getElementById(i)};
+function d64(s){var b=atob(s),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a}
+function e64(u){var s='';for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
+var salt=d64(P.s),iv=d64(P.v),data=d64(P.d),busy=false;
+function say(t){$('msg').textContent=t||''}
+function ready(){busy=false;$('go').disabled=false}
+async function derive(pw){
+  var base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:P.i,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);
+}
+async function openApp(key,store){
+  var buf;
+  try{buf=await crypto.subtle.decrypt({name:'AES-GCM',iv:iv},key,data)}catch(e){var w=new Error('pw');throw w}
+  var bytes=new Uint8Array(buf),html;
+  if(P.z){
+    if(!window.DecompressionStream)throw new Error('browser');
+    html=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  }else html=new TextDecoder().decode(bytes);
+  if(store){try{var raw=await crypto.subtle.exportKey('raw',key);sessionStorage.setItem('cs_k',e64(new Uint8Array(raw)))}catch(x){}}
+  document.open();document.write(html);document.close();
+}
+if(!(window.crypto&&crypto.subtle)){say('Halaman ini harus dibuka lewat alamat https:// (GitHub Pages).');$('go').disabled=true;return}
+var k=null;try{k=sessionStorage.getItem('cs_k')}catch(x){}
+if(k){
+  crypto.subtle.importKey('raw',d64(k),{name:'AES-GCM'},false,['decrypt'])
+    .then(function(key){return openApp(key,false)})
+    .catch(function(){try{sessionStorage.removeItem('cs_k')}catch(x){}});
+}
+$('f').addEventListener('submit',async function(e){
+  e.preventDefault();if(busy)return;busy=true;$('go').disabled=true;say('');
+  try{
+    var key=await derive($('pw').value);
+    await openApp(key,true);
+  }catch(err){
+    var m=err&&err.message;
+    say(m==='pw'?'Password salah.':(m==='browser'?'Browser terlalu lama. Perbarui Chrome atau Edge.':'Gagal membuka. Muat ulang halaman.'));
+    ready();if(m==='pw')$('pw').select();
+  }
+});
+})();
+<\/script></body></html>`;
+}
+/*CORE-END*/
+
+const $ = id=> document.getElementById(id);
+let srcText = null, srcName = 'index.html';
+
+function setHint(){
+  const v = $('pw').value, h = $('pwHint');
+  if(!v){ h.textContent = 'Isi password dulu.'; h.className = 'hint warn'; return; }
+  if(v.length < 12){
+    h.textContent = 'Password pendek mudah ditebak oleh orang yang mengunduh file terenkripsi dari GitHub. Pakai 12 karakter atau lebih bila bisa.';
+    h.className = 'hint warn';
+  } else { h.textContent = 'Panjang password sudah baik.'; h.className = 'hint'; }
+}
+function refreshGo(){ $('go').disabled = !(srcText && $('pw').value); }
+function status(msg, cls){ const s = $('status'); s.textContent = msg; s.className = 'status' + (cls ? ' ' + cls : ''); }
+function kb(n){ return (n/1024).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' KB'; }
+
+function loadFile(f){
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    srcText = String(r.result); srcName = f.name;
+    $('fileName').textContent = f.name + ' (' + kb(f.size) + ')';
+    $('dropTxt').textContent = 'File dipilih. Klik untuk mengganti.';
+    if(/<title>Chart Studio — Masuk<\/title>/.test(srcText)){
+      srcText = null;
+      status('File ini sudah terenkripsi. Pilih file index.html asli (yang belum dikunci).', 'err');
+    } else status('');
+    refreshGo();
+  };
+  r.onerror = ()=> status('File tidak bisa dibaca.', 'err');
+  r.readAsText(f);
+}
+$('file').addEventListener('change', e=> loadFile(e.target.files[0]));
+const drop = $('drop');
+['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e=> loadFile(e.dataTransfer.files[0]));
+$('pw').addEventListener('input', ()=>{ setHint(); refreshGo(); });
+$('eye').addEventListener('click', ()=>{
+  const p = $('pw'), show = p.type === 'password';
+  p.type = show ? 'text' : 'password'; $('eye').textContent = show ? 'Sembunyikan' : 'Tampilkan';
+});
+
+$('go').addEventListener('click', async ()=>{
+  if(!(window.crypto && crypto.subtle)){ status('Browser ini tidak mendukung enkripsi. Pakai Chrome atau Edge versi terbaru.', 'err'); return; }
+  const pw = $('pw').value;
+  $('go').disabled = true; status('Mengenkripsi… (beberapa detik)');
+  await new Promise(r=> setTimeout(r, 50));
+  try{
+    const t0 = performance.now();
+    const pkg = await buildPackage(srcText, pw);
+    status('Memeriksa hasil enkripsi…');
+    const back = await openPackage(pkg, pw);
+    if(back !== srcText) throw new Error('Pemeriksaan gagal: isi hasil dekripsi berbeda dari aslinya.');
+    const out = wrapper(pkg);
+    const blob = new Blob([out], { type:'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'index.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+    status('Selesai. File index.html terenkripsi diunduh (' + kb(blob.size) + ', ' + ((performance.now()-t0)/1000).toFixed(1).replace('.', ',') + ' detik). Isinya sudah diperiksa dan bisa dibuka kembali dengan password tadi.', 'ok');
+  }catch(err){
+    console.error(err); status('Gagal: ' + (err && err.message ? err.message : err), 'err');
+  }finally{ refreshGo(); }
+});
+setHint();
+</script>
+</body>
+</html>
