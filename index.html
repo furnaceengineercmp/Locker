@@ -158,14 +158,27 @@ async function openPackage(pkg, pw){
   return pkg.z ? await gunzip(bytes) : new TextDecoder().decode(bytes);
 }
 const FOOT_TXT = 'Created By Process Engineer Furnace';
-const FOOT_HTML = '<style>.cs-footer{ text-align:center; padding:18px 12px 26px; font-size:12px; font-weight:700; color:var(--text-soft); letter-spacing:.3px; }@media print{ .cs-footer{ display:none !important; } }</style>\n<div class="cs-footer">' + FOOT_TXT + '</div>\n';
+const FOOT_HTML = '<style id="cs-footer-css">.cs-footer{ text-align:center; padding:18px 12px 26px; font-size:12px; font-weight:700; color:var(--text-soft); letter-spacing:.3px; }@media print{ .cs-footer{ display:none !important; } }</style>\n<script id="cs-footer-js">(function(){function f(){var o=document.querySelectorAll(".cs-footer");for(var i=0;i<o.length;i++)o[i].parentNode.removeChild(o[i]);var d=document.createElement("div");d.className="cs-footer";d.textContent="' + FOOT_TXT + '";document.body.appendChild(d);}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",f);else f();})();<\/script>\n';
+function lastBodyClose(html){
+  const low = html.toLowerCase(), ranges = [], re = /<script\b[\s\S]*?<\/script>/gi;
+  let m; while((m = re.exec(html))) ranges.push([m.index, m.index + m[0].length]);
+  let i = low.length;
+  while(i > 0){
+    i = low.lastIndexOf('</body>', i - 1);
+    if(i < 0) return -1;
+    if(!ranges.some(function(r){ return i >= r[0] && i < r[1]; })) return i;   // abaikan </body> di dalam skrip
+  }
+  return -1;
+}
 function addFooters(html){
-  const r = { html: html, page: '', pdf: '' };
-  if(/class="cs-footer"/.test(html)) r.page = 'sudah ada';
+  const r = { html: html, page: '', pdf: '', removed: 0 };
+  // buang footer statis lama (mis. hasil tempel manual) agar tidak tertinggal di atas halaman
+  r.html = r.html.replace(/<div class="cs-footer">[^<]*<\/div>\s*/g, function(){ r.removed++; return ''; });
+  if(/id="cs-footer-js"/.test(r.html)) r.page = 'sudah ada';
   else {
-    const i = html.toLowerCase().lastIndexOf('</body>');
-    if(i >= 0){ r.html = html.slice(0, i) + FOOT_HTML + html.slice(i); r.page = 'ditambahkan'; }
-    else r.page = 'gagal';
+    const i = lastBodyClose(r.html);
+    if(i >= 0){ r.html = r.html.slice(0, i) + FOOT_HTML + r.html.slice(i); r.page = 'ditambahkan di bagian bawah'; }
+    else { r.html = r.html + '\n' + FOOT_HTML; r.page = 'ditambahkan di akhir file'; }
   }
   const h = r.html;
   if(h.indexOf(FOOT_TXT + "', p.D.W / 2") >= 0) r.pdf = 'sudah ada';
@@ -304,7 +317,7 @@ $('go').addEventListener('click', async ()=>{
     const back = await openPackage(pkg, pw);
     if(back !== prepared.html) throw new Error('Pemeriksaan gagal: isi hasil dekripsi berbeda dari aslinya.');
     const footNote = $('optFoot').checked
-      ? ' Footer halaman: ' + prepared.page + '. Footer PDF: ' + prepared.pdf + '.'
+      ? ' Footer halaman: ' + prepared.page + (prepared.removed ? ' (' + prepared.removed + ' footer lama di posisi salah dibuang)' : '') + '. Footer PDF: ' + prepared.pdf + '.'
       : '';
     const out = wrapper(pkg);
     const blob = new Blob([out], { type:'text/html' });
