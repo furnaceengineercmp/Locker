@@ -35,6 +35,10 @@ body{
 .pwrow input{ flex:1; padding:11px 12px; font-size:15px; border:1px solid var(--line); border-radius:9px; font-family:inherit; }
 .pwrow input:focus, button:focus-visible{ outline:2px solid var(--red); outline-offset:1px; }
 .ghost{ padding:0 14px; border:1px solid var(--line); background:#fff; border-radius:9px; cursor:pointer; font-weight:600; font-family:inherit; }
+.restore{ margin-top:24px; padding-top:18px; border-top:1px solid var(--line); }
+.restore > b{ display:block; font-size:14px; margin-bottom:2px; }
+.drop.small{ padding:14px; }
+.go.alt{ background:var(--ink); }
 .chk{ display:flex; gap:8px; align-items:flex-start; margin:14px 0 0; font-size:13px; color:#3a352d; cursor:pointer; }
 .chk input{ margin-top:3px; }
 .hint{ margin:6px 0 0; font-size:12.5px; color:var(--soft); min-height:18px; }
@@ -93,6 +97,21 @@ body{
         <li>Versi lama yang pernah diupload tanpa kunci masih tersimpan di riwayat commit. Hapus repository lama dan buat yang baru, atau jadikan private.</li>
         <li>Password diminta sekali per tab. Menutup tab berarti password diminta lagi.</li>
       </ul>
+    </div>
+    <div class="restore">
+      <b>Pulihkan file asli dari file terkunci</b>
+      <p class="hint">Cadangan bila file asli di komputer hilang. Pilih file index.html yang terkunci (unduh dari GitHub lewat tombol Raw, atau hasil unduhan alat ini), lalu masukkan password-nya. File yang dipulihkan sudah termasuk footer yang ditambahkan sebelum dikunci.</p>
+      <label class="drop small" id="drop2">
+        <input type="file" id="file2" accept=".html,.htm,text/html">
+        <span id="dropTxt2">Klik untuk memilih file terkunci</span>
+        <span class="fn" id="fileName2"></span>
+      </label>
+      <div class="pwrow" style="margin-top:10px;">
+        <input type="password" id="pw2" placeholder="Password file terkunci" autocomplete="off" spellcheck="false">
+        <button type="button" class="ghost" id="eye2">Tampilkan</button>
+      </div>
+      <button class="go alt" id="go2" disabled style="margin-top:10px;">Pulihkan dan unduh file asli</button>
+      <div class="status" id="status2"></div>
     </div>
     <div class="foot">Created By Process Engineer Furnace</div>
   </div>
@@ -298,6 +317,57 @@ $('go').addEventListener('click', async ()=>{
     console.error(err); status('Gagal: ' + (err && err.message ? err.message : err), 'err');
   }finally{ refreshGo(); }
 });
+/* ===== pemulihan file asli dari file terkunci ===== */
+function parseLocked(text){
+  const m = text.match(/var P=(\{[^\n]*?\});/);
+  if(!m) return null;
+  try{ const p = JSON.parse(m[1]); if(p && p.s && p.v && p.d && p.i) return p; }catch(e){}
+  return null;
+}
+let lockedPkg = null;
+function status2(msg, cls){ const s = $('status2'); s.textContent = msg; s.className = 'status' + (cls ? ' ' + cls : ''); }
+function refreshGo2(){ $('go2').disabled = !(lockedPkg && $('pw2').value); }
+function loadLocked(f){
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    const pkg = parseLocked(String(r.result));
+    $('fileName2').textContent = f.name + ' (' + kb(f.size) + ')';
+    if(!pkg){ lockedPkg = null; status2('Ini bukan file hasil alat pengunci ini, atau file-nya rusak.', 'err'); }
+    else { lockedPkg = pkg; $('dropTxt2').textContent = 'File terkunci dipilih. Klik untuk mengganti.'; status2(''); }
+    refreshGo2();
+  };
+  r.onerror = ()=> status2('File tidak bisa dibaca.', 'err');
+  r.readAsText(f);
+}
+$('file2').addEventListener('change', e=> loadLocked(e.target.files[0]));
+const drop2 = $('drop2');
+['dragenter','dragover'].forEach(ev=> drop2.addEventListener(ev, e=>{ e.preventDefault(); drop2.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=> drop2.addEventListener(ev, e=>{ e.preventDefault(); drop2.classList.remove('over'); }));
+drop2.addEventListener('drop', e=> loadLocked(e.dataTransfer.files[0]));
+$('pw2').addEventListener('input', refreshGo2);
+$('eye2').addEventListener('click', ()=>{
+  const p = $('pw2'), show = p.type === 'password';
+  p.type = show ? 'text' : 'password'; $('eye2').textContent = show ? 'Sembunyikan' : 'Tampilkan';
+});
+$('go2').addEventListener('click', async ()=>{
+  if(!(window.crypto && crypto.subtle)){ status2('Browser ini tidak mendukung dekripsi. Pakai Chrome atau Edge versi terbaru.', 'err'); return; }
+  $('go2').disabled = true; status2('Membuka kunci… (beberapa detik)');
+  await new Promise(r=> setTimeout(r, 50));
+  try{
+    const text = await openPackage(lockedPkg, $('pw2').value);
+    const blob = new Blob([text], { type:'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'index-asli.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+    status2('Berhasil. File asli dipulihkan dan diunduh sebagai index-asli.html (' + kb(blob.size) + ').', 'ok');
+  }catch(err){
+    console.error(err);
+    status2(err && err.name === 'OperationError' ? 'Password salah.' : 'Gagal memulihkan: ' + (err && err.message ? err.message : err), 'err');
+  }finally{ refreshGo2(); }
+});
+
 setHint();
 </script>
 </body>
